@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -32,16 +31,42 @@ header{height:62px;display:flex;align-items:center;gap:12px;padding:0 16px;borde
 .message.user{background:#292a31;border-radius:18px;padding:12px 16px;max-width:760px;width:fit-content;align-self:flex-end}
 .message.assistant{align-self:center}
 .composer-wrap{padding:12px 16px 20px}
-#composer{max-width:850px;margin:auto;background:#202127;border:1px solid #3b3c45;border-radius:22px;padding:10px;display:flex;align-items:flex-end;gap:10px}
-#messageInput{flex:1;resize:none;max-height:180px;min-height:42px;background:transparent;border:0;outline:none;color:white;padding:11px}
-#sendButton{width:42px;height:42px;border:0;border-radius:50%;background:#f5f5f7;color:#111;font-size:20px}
+#composer{position:relative;max-width:850px;margin:auto;background:#202127;border:1px solid #3b3c45;border-radius:22px;padding:10px;display:flex;align-items:flex-end;gap:8px}
+#messageInput{flex:1;resize:none;max-height:180px;min-height:42px;min-width:0;background:transparent;border:0;outline:none;color:white;padding:11px}
+#sendButton{flex-shrink:0;width:42px;height:42px;border:0;border-radius:50%;background:#f5f5f7;color:#111;font-size:20px}
 #sendButton:disabled{opacity:.5;cursor:default}
+#plusWrap{position:relative;flex-shrink:0}
+#plusButton{width:42px;height:42px;border:1px solid #454650;border-radius:50%;background:#303139;color:white;font-size:27px;display:flex;align-items:center;justify-content:center}
+#plusButton:hover{background:#41424b}
+#plusMenu{position:absolute;bottom:52px;left:0;width:205px;background:#25262d;border:1px solid #41424b;border-radius:14px;padding:6px;box-shadow:0 10px 35px #0008;z-index:10}
+#plusMenu[hidden]{display:none}
+.tool-option{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;color:#f5f5f7;text-align:left;padding:12px;border-radius:9px;font-size:14px}
+.tool-option:hover{background:#383941}
+.tool-icon{font-size:20px;width:24px;text-align:center}
 #status{font-size:12px;color:#aaa;text-align:center;padding-top:9px}
+.result-image{display:block;max-width:min(100%,512px);height:auto;border-radius:12px;margin-top:10px}
+.result-video{display:block;max-width:min(100%,640px);width:100%;border-radius:12px;margin-top:10px}
+.media-result{width:100%;max-width:800px;margin:0 auto;line-height:1.5}
+.media-result a{color:#9abaff}
+#promptDialog{position:fixed;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;padding:18px;z-index:20}
+#promptDialog[hidden]{display:none}
+.dialog-card{width:100%;max-width:440px;background:#202127;border:1px solid #41424b;border-radius:18px;padding:20px}
+.dialog-card h2{font-size:19px;margin:0 0 8px}
+.dialog-card p{font-size:13px;color:#b8b8c2;margin:0 0 14px}
+#mediaPrompt{width:100%;min-height:110px;resize:vertical;background:#15161a;color:white;border:1px solid #41424b;border-radius:12px;padding:12px;outline:none}
+.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.dialog-actions button{padding:10px 14px;border-radius:10px;border:1px solid #41424b}
+#cancelPrompt{background:#303139;color:white}
+#startMedia{background:#f5f5f7;color:#111;border-color:#f5f5f7}
+#startMedia:disabled{opacity:.5}
 @media(max-width:650px){
 #sidebar{position:fixed;z-index:5;inset:0 auto 0 0;box-shadow:10px 0 40px #0008}
 #sidebar.hidden{display:none}
 #messages{padding:18px 12px}
 .composer-wrap{padding:10px 10px 14px}
+#composer{gap:6px;padding:8px}
+#messageInput{padding:10px 5px;font-size:15px}
+#plusButton,#sendButton{width:39px;height:39px}
 }
 </style>
 </head>
@@ -65,12 +90,37 @@ header{height:62px;display:flex;align-items:center;gap:12px;padding:0 16px;borde
 
   <div class="composer-wrap">
     <form id="composer">
+      <div id="plusWrap">
+        <button id="plusButton" type="button" aria-label="Araçları aç" aria-expanded="false">+</button>
+        <div id="plusMenu" hidden>
+          <button class="tool-option" type="button" data-tool="image">
+            <span class="tool-icon">🎨</span>
+            <span>Görsel oluştur</span>
+          </button>
+          <button class="tool-option" type="button" data-tool="video">
+            <span class="tool-icon">🎬</span>
+            <span>Video oluştur</span>
+          </button>
+        </div>
+      </div>
       <textarea id="messageInput" rows="1" placeholder="Onur AI'ye mesaj gönder..." required></textarea>
       <button id="sendButton" type="submit" aria-label="Gönder">↑</button>
     </form>
     <div id="status">Onur AI hata yapabilir. Önemli bilgileri kontrol et.</div>
   </div>
 </main>
+
+<div id="promptDialog" hidden>
+  <div class="dialog-card">
+    <h2 id="dialogTitle">Görsel oluştur</h2>
+    <p id="dialogDescription">Oluşturmak istediğin şeyi tarif et.</p>
+    <textarea id="mediaPrompt" placeholder="Örneğin: Gün batımında piksel sanatlı bir Minecraft köyü"></textarea>
+    <div class="dialog-actions">
+      <button id="cancelPrompt" type="button">İptal</button>
+      <button id="startMedia" type="button">Oluştur</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const STORAGE_KEY = "onur_ai_chats_v1";
@@ -83,10 +133,18 @@ const composer = document.getElementById("composer");
 const messageInput = document.getElementById("messageInput");
 const sendButton = document.getElementById("sendButton");
 const statusText = document.getElementById("status");
+const plusButton = document.getElementById("plusButton");
+const plusMenu = document.getElementById("plusMenu");
+const promptDialog = document.getElementById("promptDialog");
+const dialogTitle = document.getElementById("dialogTitle");
+const dialogDescription = document.getElementById("dialogDescription");
+const mediaPrompt = document.getElementById("mediaPrompt");
+const startMedia = document.getElementById("startMedia");
 
 let chats = loadChats();
 let activeId = localStorage.getItem(ACTIVE_KEY);
 let busy = false;
+let selectedTool = "image";
 
 function makeId(){
   return Date.now().toString(36) + Math.random().toString(36).slice(2,8);
@@ -179,6 +237,21 @@ function addMessage(role, text){
   renderChatList();
 }
 
+function addMediaMessage(kind, url, filename){
+  const chat = activeChat();
+  if(!chat) return;
+
+  chat.messages.push({
+    role: "assistant",
+    text: kind === "image" ? "Görsel oluşturuldu." : "Video oluşturuldu.",
+    media: {kind, url, filename}
+  });
+
+  saveChats();
+  renderMessages();
+  renderChatList();
+}
+
 function renderMessages(){
   messages.replaceChildren();
   const chat = activeChat();
@@ -203,6 +276,36 @@ function renderMessages(){
     element.className = "message " + (item.role === "user" ? "user" : "assistant");
     element.textContent = item.text;
     messages.append(element);
+
+    if(item.media){
+      const mediaBox = document.createElement("div");
+      mediaBox.className = "media-result";
+
+      if(item.media.kind === "image"){
+        const img = document.createElement("img");
+        img.className = "result-image";
+        img.src = item.media.url;
+        img.alt = "Onur AI tarafından oluşturulan görsel";
+        mediaBox.append(img);
+      }else{
+        const video = document.createElement("video");
+        video.className = "result-video";
+        video.src = item.media.url;
+        video.controls = true;
+        video.playsInline = true;
+        mediaBox.append(video);
+      }
+
+      const link = document.createElement("a");
+      link.href = item.media.url;
+      link.download = item.media.filename;
+      link.textContent = item.media.kind === "image" ? "Görseli indir" : "Videoyu indir";
+      link.style.display = "inline-block";
+      link.style.marginTop = "10px";
+
+      mediaBox.append(link);
+      messages.append(mediaBox);
+    }
   });
 
   messages.scrollTop = messages.scrollHeight;
@@ -220,10 +323,12 @@ async function sendMessage(text){
   const message = text.trim();
   if(!message) return;
 
-  const history = chat.messages.map(item => ({
-    role: item.role === "assistant" ? "model" : "user",
-    text: item.text
-  }));
+  const history = chat.messages
+    .filter(item => !item.media)
+    .map(item => ({
+      role: item.role === "assistant" ? "model" : "user",
+      text: item.text
+    }));
 
   if(chat.messages.length === 0){
     chat.title = message.length > 28 ? message.slice(0,28) + "…" : message;
@@ -232,6 +337,7 @@ async function sendMessage(text){
   addMessage("user", message);
   busy = true;
   sendButton.disabled = true;
+  plusButton.disabled = true;
   statusText.textContent = "Onur AI düşünüyor…";
 
   try{
@@ -255,6 +361,99 @@ async function sendMessage(text){
   }finally{
     busy = false;
     sendButton.disabled = false;
+    plusButton.disabled = false;
+    messageInput.focus();
+  }
+}
+
+function openTool(tool){
+  selectedTool = tool;
+  plusMenu.hidden = true;
+  plusButton.setAttribute("aria-expanded", "false");
+
+  if(tool === "video"){
+    dialogTitle.textContent = "🎬 Video oluştur";
+    dialogDescription.textContent = "Oluşturmak istediğin animasyonu tarif et.";
+    mediaPrompt.placeholder = "Örneğin: Gökyüzünde hareket eden bir roket animasyonu";
+  }else{
+    dialogTitle.textContent = "🎨 Görsel oluştur";
+    dialogDescription.textContent = "Oluşturmak istediğin görseli tarif et.";
+    mediaPrompt.placeholder = "Örneğin: Piksel sanatlı bir Minecraft köyü";
+  }
+
+  promptDialog.hidden = false;
+  mediaPrompt.value = "";
+  mediaPrompt.focus();
+}
+
+function closeTool(){
+  promptDialog.hidden = true;
+  startMedia.disabled = false;
+  startMedia.textContent = "Oluştur";
+}
+
+async function generateMedia(){
+  const prompt = mediaPrompt.value.trim();
+  if(!prompt || busy) return;
+
+  const chat = activeChat();
+  if(!chat) return;
+
+  const tool = selectedTool;
+  const endpoint = tool === "video" ? "/api/video" : "/api/image";
+  const mime = tool === "video" ? "video/mp4" : "image/png";
+  const extension = tool === "video" ? "mp4" : "png";
+
+  if(chat.messages.length === 0){
+    chat.title = (tool === "video" ? "Video: " : "Görsel: ") +
+      (prompt.length > 22 ? prompt.slice(0,22) + "…" : prompt);
+  }
+
+  addMessage("user", (tool === "video" ? "🎬 Video oluştur: " : "🎨 Görsel oluştur: ") + prompt);
+  busy = true;
+  sendButton.disabled = true;
+  plusButton.disabled = true;
+  startMedia.disabled = true;
+  startMedia.textContent = "Oluşturuluyor…";
+  statusText.textContent = tool === "video" ? "Video hazırlanıyor, lütfen bekle…" : "Görsel hazırlanıyor, lütfen bekle…";
+  promptDialog.hidden = true;
+
+  try{
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({prompt})
+    });
+
+    if(!response.ok){
+      let errorMessage = "Medya oluşturulamadı.";
+      try{
+        const data = await response.json();
+        errorMessage = data.error || errorMessage;
+      }catch{}
+      throw new Error(errorMessage);
+    }
+
+    const blob = await response.blob();
+
+    if(!blob.size){
+      throw new Error("Sunucu boş bir dosya döndürdü.");
+    }
+
+    const url = URL.createObjectURL(new Blob([blob], {type: blob.type || mime}));
+    const filename = "onur-ai-" + Date.now() + "." + extension;
+
+    addMediaMessage(tool, url, filename);
+    statusText.textContent = tool === "video" ? "Video hazır." : "Görsel hazır.";
+  }catch(error){
+    addMessage("assistant", "Oluşturma hatası: " + error.message);
+    statusText.textContent = "Oluşturma başarısız";
+  }finally{
+    busy = false;
+    sendButton.disabled = false;
+    plusButton.disabled = false;
+    startMedia.disabled = false;
+    startMedia.textContent = "Oluştur";
     messageInput.focus();
   }
 }
@@ -272,6 +471,38 @@ composer.addEventListener("submit", async event => {
 messageInput.addEventListener("input", () => {
   messageInput.style.height = "42px";
   messageInput.style.height = Math.min(messageInput.scrollHeight, 180) + "px";
+});
+
+plusButton.addEventListener("click", () => {
+  if(busy) return;
+
+  plusMenu.hidden = !plusMenu.hidden;
+  plusButton.setAttribute("aria-expanded", String(!plusMenu.hidden));
+});
+
+plusMenu.querySelectorAll("[data-tool]").forEach(button => {
+  button.addEventListener("click", () => openTool(button.dataset.tool));
+});
+
+document.addEventListener("click", event => {
+  if(!document.getElementById("plusWrap").contains(event.target)){
+    plusMenu.hidden = true;
+    plusButton.setAttribute("aria-expanded", "false");
+  }
+});
+
+document.getElementById("cancelPrompt").onclick = closeTool;
+startMedia.addEventListener("click", generateMedia);
+
+promptDialog.addEventListener("click", event => {
+  if(event.target === promptDialog) closeTool();
+});
+
+mediaPrompt.addEventListener("keydown", event => {
+  if(event.key === "Enter" && !event.shiftKey){
+    event.preventDefault();
+    generateMedia();
+  }
 });
 
 document.getElementById("newChat").onclick = createChat;
