@@ -11,10 +11,10 @@ import crypto from "node:crypto";
 
 dotenv.config();
 
-const app = express();
+const AI_NAME = "Onur AI";
+const AI_DEVELOPER = "breynot.editzz";
 const PORT = Number(process.env.PORT || 3000);
-const MODEL =
-  process.env.GEMINI_CHAT_MODEL || "gemini-3.5-flash-lite";
+const MODEL = process.env.GEMINI_CHAT_MODEL || "gemini-3.5-flash-lite";
 
 if (!process.env.GEMINI_API_KEY) {
   console.error("GEMINI_API_KEY .env dosyasında eksik.");
@@ -25,8 +25,79 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
 
+const app = express();
+
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static("public"));
+
+const READY_RESPONSES = [
+  {
+    keywords: ["merhaba", "selam", "sa", "selamün aleyküm", "selamun aleykum"],
+    reply: "Merhaba! Ben Onur AI. Sana nasıl yardımcı olabilirim?"
+  },
+  {
+    keywords: ["adın ne", "ismin ne", "sen kimsin", "kimsin"],
+    reply: "Ben Onur AI, yapay zekâ asistanınım."
+  },
+  {
+    keywords: ["geliştiricin kim", "kim yaptı", "seni kim yaptı", "yapımcın kim"],
+    reply: "Geliştiricim breynot.editzz."
+  },
+  {
+    keywords: ["nasılsın", "naber", "ne haber"],
+    reply: "İyiyim, teşekkürler! Sana nasıl yardımcı olabilirim?"
+  },
+  {
+    keywords: ["teşekkürler", "teşekkür ederim", "sağ ol", "eyvallah"],
+    reply: "Rica ederim! Başka bir konuda yardımcı olabilir miyim?"
+  },
+  {
+    keywords: ["görüşürüz", "bay bay", "hoşça kal", "bye"],
+    reply: "Görüşürüz! Onur AI'ı kullandığın için teşekkürler."
+  },
+  {
+    keywords: ["ne yapabilirsin", "özelliklerin neler", "neler yapıyorsun"],
+    reply: "Soruları yanıtlayabilir, açıklamalar yapabilir ve kod yazmana yardımcı olabilirim. Görsel ve animasyon oluşturma özelliklerini de kullanabilirsin."
+  },
+  {
+    keywords: ["hangi model", "modelin ne", "hangi yapay zekâsın"],
+    reply: "Ben Onur AI. Sohbet için yapılandırılan model: " + MODEL
+  },
+  {
+    keywords: ["kaç yaşındasın"],
+    reply: "Ben bir yapay zekâyım; insanlardaki gibi bir yaşım yok."
+  },
+  {
+    keywords: ["saat kaç"],
+    reply: "Cihazındaki saati kontrol edebilirsin. Sunucum cihazının yerel saatini doğrudan bilemeyebilir."
+  }
+];
+
+function normalizeText(text) {
+  return String(text || "")
+    .toLocaleLowerCase("tr-TR")
+    .replace(/[?!.,;:]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getReadyResponse(message) {
+  const normalized = normalizeText(message);
+
+  for (const item of READY_RESPONSES) {
+    const matched = item.keywords.some((keyword) => {
+      const normalizedKeyword = normalizeText(keyword);
+
+      return normalized === normalizedKeyword;
+    });
+
+    if (matched) {
+      return item.reply;
+    }
+  }
+
+  return null;
+}
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -45,6 +116,7 @@ function safeColor(value, fallback = "#ffffff") {
   ) {
     return value;
   }
+
   return fallback;
 }
 
@@ -80,23 +152,23 @@ Bir animasyon videosu için JSON şablonu üret.
 Yalnızca geçerli JSON döndür, açıklama veya Markdown yazma.
 Şema:
 {
-  "type":"video",
-  "title":"Sahne",
-  "width":512,
-  "height":512,
-  "duration":5,
-  "fps":24,
-  "background":"#87CEEB",
-  "shapes":[
+  "type": "video",
+  "title": "Sahne",
+  "width": 512,
+  "height": 512,
+  "duration": 5,
+  "fps": 24,
+  "background": "#87CEEB",
+  "shapes": [
     {
-      "type":"circle",
-      "x":200,
-      "y":150,
-      "radius":35,
-      "color":"#ff9900",
-      "vx":2,
-      "vy":0,
-      "rotationSpeed":0
+      "type": "circle",
+      "x": 200,
+      "y": 150,
+      "radius": 35,
+      "color": "#ff9900",
+      "vx": 2,
+      "vy": 0,
+      "rotationSpeed": 0
     }
   ]
 }
@@ -111,16 +183,16 @@ Bir görsel için JSON çizim şablonu üret.
 Yalnızca geçerli JSON döndür, açıklama veya Markdown yazma.
 Şema:
 {
-  "width":512,
-  "height":512,
-  "background":"#ffffff",
-  "shapes":[
+  "width": 512,
+  "height": 512,
+  "background": "#ffffff",
+  "shapes": [
     {
-      "type":"circle",
-      "x":200,
-      "y":150,
-      "radius":40,
-      "color":"#ff9900"
+      "type": "circle",
+      "x": 200,
+      "y": 150,
+      "radius": 40,
+      "color": "#ff9900"
     }
   ]
 }
@@ -409,6 +481,8 @@ async function createVideo(template) {
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
+    name: AI_NAME,
+    developer: AI_DEVELOPER,
     model: MODEL
   });
 });
@@ -425,13 +499,51 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
+    const readyReply = getReadyResponse(message);
+
+    if (readyReply) {
+      return res.json({
+        name: AI_NAME,
+        developer: AI_DEVELOPER,
+        reply: readyReply,
+        ready: true
+      });
+    }
+
+    const history = Array.isArray(req.body?.history)
+      ? req.body.history.slice(-20)
+      : [];
+
+    const conversation = history
+      .filter(
+        (item) =>
+          item &&
+          ["user", "model"].includes(item.role) &&
+          typeof item.text === "string"
+      )
+      .map((item) => ({
+        role: item.role,
+        parts: [{ text: item.text.slice(0, 8000) }]
+      }));
+
+    conversation.push({
+      role: "user",
+      parts: [{ text: message.slice(0, 8000) }]
+    });
+
     const response = await ai.models.generateContent({
       model: MODEL,
-      contents: message
+      contents: conversation,
+      config: {
+        systemInstruction: `Sen ${AI_NAME} adlı yapay zekâ asistanısın. Geliştiricin ${AI_DEVELOPER}. Kullanıcıya doğal ve anlaşılır şekilde yanıt ver. Adın sorulursa ${AI_NAME} olduğunu söyle. Geliştiricin sorulursa ${AI_DEVELOPER} olduğunu söyle. Bilmediğin konularda bilgi uydurma.`
+      }
     });
 
     res.json({
-      reply: response.text || "Yanıt oluşturulamadı."
+      name: AI_NAME,
+      developer: AI_DEVELOPER,
+      reply: response.text || "Yanıt oluşturulamadı.",
+      ready: false
     });
   } catch (error) {
     console.error("Chat hatası:", error);
@@ -462,6 +574,8 @@ app.post("/api/image", async (req, res) => {
       "Content-Disposition",
       'inline; filename="onur-ai.png"'
     );
+    res.setHeader("X-AI-Name", AI_NAME);
+    res.setHeader("X-AI-Developer", AI_DEVELOPER);
 
     res.send(png);
   } catch (error) {
@@ -493,6 +607,8 @@ app.post("/api/video", async (req, res) => {
       "Content-Disposition",
       'inline; filename="onur-ai.mp4"'
     );
+    res.setHeader("X-AI-Name", AI_NAME);
+    res.setHeader("X-AI-Developer", AI_DEVELOPER);
 
     res.send(video);
   } catch (error) {
@@ -505,5 +621,7 @@ app.post("/api/video", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Onur AI çalışıyor: http://localhost:${PORT}`);
+  console.log(`${AI_NAME} çalışıyor: http://localhost:${PORT}`);
+  console.log(`Geliştirici: ${AI_DEVELOPER}`);
+  console.log(`Model: ${MODEL}`);
 });
