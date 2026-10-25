@@ -1,0 +1,16 @@
+{
+  "name": "onur-ai",
+  "version": "4.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/genai": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "sharp": "latest",
+    "ffmpeg-static": "latest"
+  }
+}
